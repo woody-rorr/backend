@@ -1,16 +1,19 @@
-FROM node:20-bookworm-slim
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    awscli ca-certificates curl jq && rm -rf /var/lib/apt/lists/*
-
+# syntax=docker/dockerfile:1
+FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm install --omit=dev
+RUN apk add --no-cache python3 make g++
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
 
-COPY src ./src
-COPY deploy/entrypoint.sh ./
-RUN chmod +x entrypoint.sh
-
+FROM node:20-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+COPY package*.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY deploy/entrypoint.sh ./deploy/entrypoint.sh
+RUN chmod +x ./deploy/entrypoint.sh
 EXPOSE 5013
-ENTRYPOINT []
-CMD ["/app/entrypoint.sh"]
+ENTRYPOINT ["./deploy/entrypoint.sh"]
