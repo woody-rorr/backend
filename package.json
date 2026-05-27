@@ -4,9 +4,7 @@
   "description": "new-project user API (signup/login)",
   "private": true,
   "license": "UNLICENSED",
-  "engines": {
-    "node": ">=20"
-  },
+  "engines": { "node": ">=20" },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -20,8 +18,11 @@
     "test:cov": "jest --coverage",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "typeorm": "typeorm-ts-node-commonjs -d src/database/data-source.ts",
+    "typeorm:prod": "node ./node_modules/typeorm/cli.js -d dist/database/data-source.js",
     "migration:run": "npm run typeorm -- migration:run",
+    "migration:run:prod": "npm run typeorm:prod -- migration:run",
     "migration:revert": "npm run typeorm -- migration:revert",
+    "migration:revert:prod": "npm run typeorm:prod -- migration:revert",
     "migration:generate": "npm run typeorm -- migration:generate",
     "migration:create": "typeorm-ts-node-commonjs migration:create"
   },
@@ -78,9 +79,7 @@
     "moduleFileExtensions": ["js", "json", "ts"],
     "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
-    "transform": {
-      "^.+\\.(t|j)s$": "ts-jest"
-    },
+    "transform": { "^.+\\.(t|j)s$": "ts-jest" },
     "collectCoverageFrom": ["**/*.(t|j)s"],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
