@@ -1,23 +1,26 @@
 # syntax=docker/dockerfile:1
 
-# ---- Builder stage ----
+# ---- builder stage ----
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Native build deps for node-gyp based packages (bcrypt 등)
+# native addon build deps (bcrypt 등)
 RUN apk add --no-cache python3 make g++
 
-# NOTE: package-lock.json이 레포에 없어 `npm ci`가 실패하므로 단기 해결책으로 `npm install` 사용.
 COPY package*.json ./
 RUN npm install --no-audit --no-fund
 
 COPY . .
 RUN npm run build
 
-# ---- Runtime stage ----
+# ---- runtime stage ----
 FROM node:20-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+
+# ECS task-def healthCheck: `curl -fsS http://localhost:5013/health`
+# node:20-alpine 에는 curl 이 없어 health check 가 실패하므로 설치한다.
+RUN apk add --no-cache curl ca-certificates
 
 COPY package*.json ./
 COPY --from=builder /app/node_modules ./node_modules
