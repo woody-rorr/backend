@@ -32,8 +32,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 빈 레포 또는 인프라 미준비 상태에서는 빌드/배포 자체를 skip.
-      # scaffold_new_project_api MCP 툴이 NestJS 골격을 채우면 그 이후 본 워크플로우가 정상 동작.
       - name: Check prerequisites
         id: check
         run: |
@@ -44,9 +42,26 @@ jobs:
           if [ -n "$missing" ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
             echo "::warning::Skipping deploy. Missing required files:$missing"
-            echo "::warning::See resources/new-project/*.md in backend-migration-mcp."
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # MCP scaffold 산출물에는 lock 파일이 없으므로, 빌드 직전 자동 생성.
+      # 운영자가 로컬 npm install 후 lock 을 커밋하면 이 단계는 no-op.
+      - name: Setup Node
+        if: steps.check.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate lockfile if missing
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          if [ ! -f package-lock.json ]; then
+            echo "::warning::package-lock.json missing — generating on the fly"
+            npm install --package-lock-only --no-audit --no-fund
+          else
+            echo "package-lock.json present — skipping"
           fi
 
       - name: Configure AWS via OIDC
@@ -88,10 +103,8 @@ jobs:
       - name: Done
         run: |
           if [ "${{ steps.check.outputs.ready }}" = "true" ]; then
-            echo "✅ Deployment triggered: $ECR_REGISTRY/$ECR_REPO:${{ github.sha }}"
+            echo "Deployment triggered: $ECR_REGISTRY/$ECR_REPO:${{ github.sha }}"
             echo "Health: http://mcp-agents-staging-alb-249976027.us-east-1.elb.amazonaws.com:5013/health"
-            echo "API Docs: http://mcp-agents-staging-alb-249976027.us-east-1.elb.amazonaws.com:5013/api-docs"
-            echo "ℹ️  새 task가 unhealthy하면 ECS가 옛 task로 자동 유지 — 별도 wait 검증 없음."
           else
-            echo "⏭️  Skipped (prerequisites missing). Run scaffold_new_project_api MCP tool to fill src/."
+            echo "Skipped (prerequisites missing)."
           fi
