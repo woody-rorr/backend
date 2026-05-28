@@ -1,21 +1,22 @@
-# backend
+# e스포츠 뉴스 피드 API
 
-NestJS API 서버 (ECS Fargate, port 5013).
+## 개요
+e스포츠 뉴스와 실시간 경기 정보를 제공하는 백엔드 API
 
-명세는 `backend-migration-mcp/resources/new-project/*.md` 참조.
-코드는 MCP의 `scaffold_new_project_api` 툴이 생성.
+## 주요 기능
+- 뉴스 목록 조회 (카테고리 필터)
+- 실시간 경기 정보 조회
+- Health check endpoint
 
-## 로컬 실행 (placeholder)
+## API Endpoints
+- GET /health - 서비스 상태 확인
+- GET /api/news - 뉴스 목록
+- GET /api/news/:id - 뉴스 상세
+- GET /api/matches/live - 라이브 경기 목록
+- GET /api/matches/:id - 경기 상세
 
-```bash
-npm install
-node src/server.js
-# http://localhost:5013/health
-```
-
-## 배포
-
-```bash
-export AWS_PROFILE=rorr-dev
-bash deploy/deploy.sh
-```
+## 기술 스택
+- NestJS
+- TypeORM
+- PostgreSQL
+- TypeScript
