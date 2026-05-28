@@ -1,32 +1,20 @@
 # syntax=docker/dockerfile:1
 
-# ---- builder stage ----
 FROM node:20-alpine AS builder
 WORKDIR /app
-
-# native addon build deps (bcrypt 등)
-RUN apk add --no-cache python3 make g++
-
 COPY package*.json ./
-RUN npm install --no-audit --no-fund
-
+RUN npm ci
 COPY . .
 RUN npm run build
 
-# ---- runtime stage ----
 FROM node:20-alpine AS runtime
-WORKDIR /app
-ENV NODE_ENV=production
-
-# ECS task-def healthCheck: `curl -fsS http://localhost:5013/health`
-# node:20-alpine 에는 curl 이 없어 health check 가 실패하므로 설치한다.
 RUN apk add --no-cache curl ca-certificates
-
+ENV NODE_ENV=production
+WORKDIR /app
 COPY package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
+RUN npm ci --omit=dev && npm cache clean --force
 COPY --from=builder /app/dist ./dist
-COPY deploy/entrypoint.sh ./deploy/entrypoint.sh
-RUN chmod +x ./deploy/entrypoint.sh
-
 EXPOSE 5013
-ENTRYPOINT ["./deploy/entrypoint.sh"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD curl -fsS http://localhost:5013/health || exit 1
+CMD ["node", "dist/main.js"]
