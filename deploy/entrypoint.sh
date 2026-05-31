@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+# Optional auto-migration on boot (07-env-and-secrets.md §1: RUN_MIGRATIONS).
+# Production image ships only dist/, so use the compiled (dist-based) command there.
 if [ "$RUN_MIGRATIONS" = "true" ]; then
   if [ -d dist ]; then
     echo "[entrypoint] RUN_MIGRATIONS=true -> migration:run:prod (dist-based)"
@@ -11,5 +13,5 @@ if [ "$RUN_MIGRATIONS" = "true" ]; then
   fi
 fi
 
-echo "[entrypoint] starting backend-api on port ${PORT:-5013}"
+echo "[entrypoint] starting API on port ${PORT:-5013}"
 exec node dist/main.js
