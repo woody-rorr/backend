@@ -1,33 +1,19 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import configuration, { validationSchema } from './config/configuration';
-import { HealthModule } from './modules/health/health.module';
-import { UsersModule } from './modules/users/users.module';
-import { AuthModule } from './modules/auth/auth.module';
-import { PostsModule } from './modules/posts/posts.module';
+import configuration from './config/configuration';
+import { AppDataSource } from './database/data-source';
+import { QuizModule } from './modules/quiz/quiz.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [configuration], validationSchema }),
-    TypeOrmModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres' as const,
-        host: config.get<string>('db.host'),
-        port: config.get<number>('db.port'),
-        username: config.get<string>('db.user'),
-        password: config.get<string>('db.password'),
-        database: config.get<string>('db.name'),
-        ssl: config.get<boolean>('db.ssl') ? { rejectUnauthorized: false } : false,
-        autoLoadEntities: true,
-        synchronize: false,
-      }),
-    }),
-    HealthModule,
-    UsersModule,
-    AuthModule,
-    PostsModule,
+    ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
+    TypeOrmModule.forRoot(AppDataSource.options),
+    QuizModule,
   ],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
