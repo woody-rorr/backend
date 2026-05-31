@@ -1,43 +1,25 @@
 import { NestFactory } from '@nestjs/core';
-import { Logger, ValidationPipe } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
-
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
-
   app.setGlobalPrefix('', { exclude: ['/health'] });
-
-  const corsOrigins = config.get<string[]>('corsOrigins') ?? [];
-  app.enableCors({
-    origin: corsOrigins.length > 0 ? corsOrigins : false,
-    credentials: true,
-  });
-
+  app.useGlobalPipes(new ValidationPipe({whitelist:true,forbidNonWhitelisted:true,transform:true,transformOptions:{enableImplicitConversion:true}}));
+  app.useGlobalFilters(new AllExceptionsFilter());
+  app.useGlobalInterceptors(new LoggingInterceptor());
+  const corsOrigins = config.get<string>('corsOrigins');
+  app.enableCors({origin:corsOrigins?corsOrigins.split(',').map(o=>o.trim()).filter(Boolean):true,credentials:true});
   app.enableShutdownHooks();
-
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('e스포츠 뉴스 피드 API')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api-docs', app, document);
-
-  const port = config.get<number>('port') ?? 5013;
-  await app.listen(port);
-  Logger.log(`Application listening on port ${port}`, 'Bootstrap');
+  const swaggerCfg = new DocumentBuilder().setTitle('new-project API').setVersion('1.0').addBearerAuth().build();
+  SwaggerModule.setup('api-docs',app,SwaggerModule.createDocument(app,swaggerCfg));
+  const port = config.get<number>('port')??5013;
+  await app.listen(port,'0.0.0.0');
+  Logger.log(`Listening on ${port}`,'Bootstrap');
 }
-
 void bootstrap();
