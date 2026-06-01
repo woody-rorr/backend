@@ -8,7 +8,6 @@ import { AppDataSource } from './database/data-source';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { HealthModule } from './modules/health/health.module';
-// === FEATURE MODULE IMPORTS ===
 import { OrderModule } from './modules/order/order.module';
 
 @Module({
@@ -18,7 +17,6 @@ import { OrderModule } from './modules/order/order.module';
     TypeOrmModule.forRoot(AppDataSource.options),
     AuthModule,
     HealthModule,
-    // === FEATURE MODULES ===
     OrderModule,
   ],
   providers: [
