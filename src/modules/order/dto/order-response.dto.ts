@@ -1,37 +1,41 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { OrderEntity, OrderItem, OrderStatus } from '../entities/order.entity';
+import { OrderEntity, OrderStatus } from '../entities/order.entity';
 
 export class OrderResponseDto {
-  @ApiProperty() id: string;
-  @ApiProperty() orderNumber: string;
-  @ApiProperty() userId: string;
-  @ApiProperty({ enum: ['pending', 'paid', 'shipped', 'delivered', 'cancelled'] })
-  status: OrderStatus;
-  @ApiProperty({ type: 'array', items: { type: 'object' } }) items: OrderItem[];
-  @ApiProperty({ example: 99.98 }) totalAmount: number;
-  @ApiProperty({ example: 'USD' }) currency: string;
-  @ApiProperty() shippingAddress: string;
-  @ApiProperty({ nullable: true }) notes: string | null;
-  @ApiProperty({ nullable: true, type: String }) paidAt: string | null;
-  @ApiProperty({ nullable: true, type: String }) cancelledAt: string | null;
-  @ApiProperty() createdAt: string;
-  @ApiProperty() updatedAt: string;
+  @ApiProperty({ format: 'uuid' })
+  id: string;
 
-  static from(e: OrderEntity): OrderResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  userId: string;
+
+  @ApiProperty()
+  productName: string;
+
+  @ApiProperty()
+  quantity: number;
+
+  @ApiProperty({ description: 'KRW' })
+  price: number;
+
+  @ApiProperty({ enum: OrderStatus })
+  status: OrderStatus;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  createdAt: string;
+
+  @ApiProperty({ type: String, format: 'date-time' })
+  updatedAt: string;
+
+  static fromEntity(entity: OrderEntity): OrderResponseDto {
     const dto = new OrderResponseDto();
-    dto.id = e.id;
-    dto.orderNumber = e.orderNumber;
-    dto.userId = e.userId;
-    dto.status = e.status;
-    dto.items = e.items ?? [];
-    dto.totalAmount = e.totalAmount;
-    dto.currency = e.currency;
-    dto.shippingAddress = e.shippingAddress;
-    dto.notes = e.notes;
-    dto.paidAt = e.paidAt ? e.paidAt.toISOString() : null;
-    dto.cancelledAt = e.cancelledAt ? e.cancelledAt.toISOString() : null;
-    dto.createdAt = e.createdAt.toISOString();
-    dto.updatedAt = e.updatedAt.toISOString();
+    dto.id = entity.id;
+    dto.userId = entity.userId;
+    dto.productName = entity.productName;
+    dto.quantity = entity.quantity;
+    dto.price = entity.price;
+    dto.status = entity.status;
+    dto.createdAt = entity.createdAt.toISOString();
+    dto.updatedAt = entity.updatedAt.toISOString();
     return dto;
   }
 }

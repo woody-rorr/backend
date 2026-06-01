@@ -1,119 +1,78 @@
-import { HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateOrderDto } from './dto/create-order.dto';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
 import { ListOrdersQueryDto } from './dto/list-orders-query.dto';
 import { OrderResponseDto } from './dto/order-response.dto';
-import { UpdateOrderDto } from './dto/update-order.dto';
-import { OrderEntity } from './entities/order.entity';
 import { OrderRepository } from './order.repository';
 
-/** creative rule: abuse guard — cap orders created per user per UTC day */
-const DAILY_ORDER_LIMIT = 50;
+const SORTABLE_FIELDS = ['createdAt', 'updatedAt', 'price', 'quantity', 'status'];
 
 @Injectable()
 export class OrderService {
-  constructor(
-    private readonly orders: OrderRepository,
-    private readonly dataSource: DataSource,
-  ) {}
+  constructor(private readonly orderRepository: OrderRepository) {}
 
-  async create(userId: string, dto: CreateOrderDto): Promise<OrderResponseDto> {
-    const startOfDay = new Date();
-    startOfDay.setUTCHours(0, 0, 0, 0);
-    const todays = await this.orders.countSince(userId, startOfDay);
-    if (todays >= DAILY_ORDER_LIMIT) {
-      throw new HttpException(
-        {
-          code: 'ORDER_DAILY_LIMIT_EXCEEDED',
-          message: `하루 주문 한도(${DAILY_ORDER_LIMIT}건)를 초과했습니다`,
-        },
-        HttpStatus.UNPROCESSABLE_ENTITY,
-      );
-    }
-
-    const saved = await this.dataSource.transaction(async (mgr) => {
-      const order = this.orders.create({
-        userId,
-        orderNumber: this.generateOrderNumber(),
-        status: 'pending',
-        items: dto.items,
-        currency: dto.currency ?? 'USD',
-        shippingAddress: dto.shippingAddress,
-        notes: dto.notes ?? null,
-      });
-      order.recalculateTotal();
-      return this.orders.save(order, mgr);
+  async create(dto: CreateOrderDto): Promise<OrderResponseDto> {
+    const order = this.orderRepository.create({
+      userId: dto.userId,
+      productName: dto.productName,
+      quantity: dto.quantity,
+      price: dto.price,
     });
-
-    return OrderResponseDto.from(saved);
+    const saved = await this.orderRepository.save(order);
+    return OrderResponseDto.fromEntity(saved);
   }
 
-  async findOne(userId: string, id: string): Promise<OrderResponseDto> {
-    return OrderResponseDto.from(await this.loadOwned(userId, id));
-  }
-
-  async findAll(userId: string, query: ListOrdersQueryDto) {
-    const [field, dir] = query.sort.split(':');
-    const [rows, total] = await this.orders.findMany({
-      userId,
-      status: query.status,
-      page: query.page,
-      limit: query.limit,
+  async findAll(query: ListOrdersQueryDto): Promise<{
+    data: OrderResponseDto[];
+    meta: { page: number; limit: number; total: number; totalPages: number };
+  }> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const { field, dir } = this.parseSort(query.sort);
+    const [rows, total] = await this.orderRepository.findAndPaginate({
+      page,
+      limit,
+      userId: query.userId,
       sortField: field,
-      sortDir: dir.toUpperCase() === 'ASC' ? 'ASC' : 'DESC',
+      sortDir: dir,
     });
     return {
-      data: rows.map((r) => OrderResponseDto.from(r)),
-      meta: {
-        page: query.page,
-        limit: query.limit,
-        total,
-        totalPages: Math.ceil(total / query.limit),
-      },
+      data: rows.map((r) => OrderResponseDto.fromEntity(r)),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
 
-  async update(userId: string, id: string, dto: UpdateOrderDto): Promise<OrderResponseDto> {
-    const order = await this.loadOwned(userId, id);
-    order.updateDetails({ shippingAddress: dto.shippingAddress, notes: dto.notes });
-    return OrderResponseDto.from(await this.orders.save(order));
-  }
-
-  async pay(userId: string, id: string): Promise<OrderResponseDto> {
-    const order = await this.loadOwned(userId, id);
-    order.pay();
-    return OrderResponseDto.from(await this.orders.save(order));
-  }
-
-  async cancel(userId: string, id: string): Promise<OrderResponseDto> {
-    const order = await this.loadOwned(userId, id);
-    order.cancel();
-    return OrderResponseDto.from(await this.orders.save(order));
-  }
-
-  async remove(userId: string, id: string): Promise<void> {
-    const order = await this.loadOwned(userId, id);
-    if (order.status !== 'cancelled') {
-      throw new HttpException(
-        { code: 'INVALID_ORDER_STATE', message: '취소된 주문만 삭제할 수 있습니다' },
-        HttpStatus.UNPROCESSABLE_ENTITY,
-      );
-    }
-    await this.orders.softDelete(order);
-  }
-
-  /** ownership is enforced by the userId filter — returns 404 (not 403) to avoid leaking existence */
-  private async loadOwned(userId: string, id: string): Promise<OrderEntity> {
-    const order = await this.orders.findById(id, userId);
+  async findOne(id: string): Promise<OrderResponseDto> {
+    const order = await this.orderRepository.findByIdOrNull(id);
     if (!order) {
-      throw new NotFoundException({ code: 'ORDER_NOT_FOUND', message: '주문을 찾을 수 없습니다' });
+      throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: '주문을 찾을 수 없습니다' });
     }
-    return order;
+    return OrderResponseDto.fromEntity(order);
   }
 
-  private generateOrderNumber(): string {
-    const ymd = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
-    return `ORD-${ymd}-${rand}`;
+  async updateStatus(id: string, dto: UpdateOrderStatusDto): Promise<OrderResponseDto> {
+    const order = await this.orderRepository.findByIdOrNull(id);
+    if (!order) {
+      throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: '주문을 찾을 수 없습니다' });
+    }
+    order.changeStatus(dto.status);
+    const saved = await this.orderRepository.save(order);
+    return OrderResponseDto.fromEntity(saved);
+  }
+
+  async remove(id: string): Promise<void> {
+    const order = await this.orderRepository.findByIdOrNull(id);
+    if (!order) {
+      throw new NotFoundException({ code: 'RESOURCE_NOT_FOUND', message: '주문을 찾을 수 없습니다' });
+    }
+    await this.orderRepository.delete(id);
+  }
+
+  private parseSort(sort?: string): { field: string; dir: 'ASC' | 'DESC' } {
+    if (!sort) return { field: 'createdAt', dir: 'DESC' };
+    const [field, dirRaw] = sort.split(':');
+    const safeField = SORTABLE_FIELDS.includes(field) ? field : 'createdAt';
+    const dir = (dirRaw ?? 'desc').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    return { field: safeField, dir };
   }
 }
