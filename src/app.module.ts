@@ -1,33 +1,29 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import configuration, { validationSchema } from './config/configuration';
-import { HealthModule } from './modules/health/health.module';
-import { UsersModule } from './modules/users/users.module';
+import { APP_GUARD } from '@nestjs/core';
+import configuration from './config/configuration';
+import { AppDataSource } from './database/data-source';
 import { AuthModule } from './modules/auth/auth.module';
-import { PostsModule } from './modules/posts/posts.module';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { HealthModule } from './modules/health/health.module';
+// === FEATURE MODULE IMPORTS ===
+import { OrderModule } from './modules/order/order.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, load: [configuration], validationSchema }),
-    TypeOrmModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres' as const,
-        host: config.get<string>('db.host'),
-        port: config.get<number>('db.port'),
-        username: config.get<string>('db.user'),
-        password: config.get<string>('db.password'),
-        database: config.get<string>('db.name'),
-        ssl: config.get<boolean>('db.ssl') ? { rejectUnauthorized: false } : false,
-        autoLoadEntities: true,
-        synchronize: false,
-      }),
-    }),
-    HealthModule,
-    UsersModule,
+    ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
+    TypeOrmModule.forRoot(AppDataSource.options),
     AuthModule,
-    PostsModule,
+    HealthModule,
+    // === FEATURE MODULES ===
+    OrderModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })
 export class AppModule {}
