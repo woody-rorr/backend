@@ -8,8 +8,8 @@ import { AppDataSource } from './database/data-source';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { HealthModule } from './modules/health/health.module';
-// === FEATURE MODULE IMPORTS ===
-import { PaymentModule } from './modules/payment/payment.module';
+import { CalendarModule } from './modules/calendar/calendar.module';
+import { EventModule } from './modules/event/event.module';
 
 @Module({
   imports: [
@@ -18,8 +18,8 @@ import { PaymentModule } from './modules/payment/payment.module';
     TypeOrmModule.forRoot(AppDataSource.options),
     AuthModule,
     HealthModule,
-    // === FEATURE MODULES ===
-    PaymentModule,
+    CalendarModule,
+    EventModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
