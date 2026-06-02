@@ -9,6 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { HealthModule } from './modules/health/health.module';
 import { FollowModule } from './modules/follow/follow.module';
+import { SparkModule } from './modules/spark/spark.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { FollowModule } from './modules/follow/follow.module';
     AuthModule,
     HealthModule,
     FollowModule,
+    SparkModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
