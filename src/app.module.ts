@@ -9,19 +9,16 @@ import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { HealthModule } from './modules/health/health.module';
 import { FollowModule } from './modules/follow/follow.module';
-import { ProductModule } from './modules/product/product.module';
-// === FEATURE MODULE IMPORTS ===
+import { SparkModule } from './modules/spark/spark.module';
+import { QuizModule } from './modules/quiz/quiz.module';
+import { RankingModule } from './modules/ranking/ranking.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
     TypeOrmModule.forRoot(AppDataSource.options),
-    AuthModule,
-    HealthModule,
-    FollowModule,
-    ProductModule,
-    // === FEATURE MODULES ===
+    AuthModule, HealthModule, FollowModule, SparkModule, QuizModule, RankingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
