@@ -8,7 +8,7 @@ import { AppDataSource } from './database/data-source';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { HealthModule } from './modules/health/health.module';
-import { FollowModule } from './modules/follow/follow.module';
+import { SparkModule } from './modules/spark/spark.module';
 
 @Module({
   imports: [
@@ -17,7 +17,7 @@ import { FollowModule } from './modules/follow/follow.module';
     TypeOrmModule.forRoot(AppDataSource.options),
     AuthModule,
     HealthModule,
-    FollowModule,
+    SparkModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
