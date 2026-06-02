@@ -9,8 +9,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { HealthModule } from './modules/health/health.module';
 import { FollowModule } from './modules/follow/follow.module';
-import { ProductModule } from './modules/product/product.module';
-// === FEATURE MODULE IMPORTS ===
+import { SparkModule } from './modules/spark/spark.module';
+import { QuizModule } from './modules/quiz/quiz.module';
 
 @Module({
   imports: [
@@ -20,8 +20,8 @@ import { ProductModule } from './modules/product/product.module';
     AuthModule,
     HealthModule,
     FollowModule,
-    ProductModule,
-    // === FEATURE MODULES ===
+    SparkModule,
+    QuizModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
