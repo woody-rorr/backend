@@ -91,6 +91,15 @@ jobs:
             ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO }}:latest
             ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO }}:${{ github.sha }}
 
+      - name: Set health check grace period
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          aws ecs update-service \
+            --cluster $CLUSTER \
+            --service $SERVICE \
+            --health-check-grace-period-seconds 120 \
+            --region $AWS_REGION > /dev/null
+
       - name: Force new ECS deployment
         if: steps.check.outputs.ready == 'true'
         run: |

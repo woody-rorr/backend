@@ -20,6 +20,6 @@ COPY --from=builder /app/dist ./dist
 COPY deploy/entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 EXPOSE 5013
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD curl -fsS http://localhost:5013/health || exit 1
 ENTRYPOINT ["/app/entrypoint.sh"]
