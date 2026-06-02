@@ -1,39 +1,58 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
-import { UsersService } from '../users/users.service';
-import { CreateUserSignUpDto } from './dto/sign-up.dto';
-import { SignInDto } from './dto/sign-in.dto';
-import { AuthResponseDto } from './dto/auth-response.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { User } from './entities/user.entity';
+import { GoogleProfile } from './strategies/google.strategy';
+import { JwtPayload } from './strategies/jwt.strategy';
 
-const BCRYPT_SALT_ROUNDS = 10;
-
-interface JwtPayload { sub: string; email: string; roles: string[]; }
-type AuthenticatedUser = { id: string; email: string; name: string; createdAt: Date | string; };
+export interface AuthResult {
+  accessToken: string;
+  user: User;
+}
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly usersService: UsersService, private readonly jwtService: JwtService) {}
-  async signup(dto: CreateUserSignUpDto): Promise<AuthResponseDto> {
-    const existing = await this.usersService.findByEmail(dto.email);
-    if (existing) throw new ConflictException({ code: 'EMAIL_EXISTS', message: 'Email already registered' });
-    const passwordHash = await bcrypt.hash(dto.password, BCRYPT_SALT_ROUNDS);
-    const user = await this.usersService.createUser({ email: dto.email, passwordHash, name: dto.name });
-    return this.buildAuthResponse(user);
+  constructor(
+    @InjectRepository(User) private readonly userRepo: Repository<User>,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  async validateOrCreateUser(profile: GoogleProfile): Promise<User> {
+    let user = await this.userRepo.findOne({
+      where: { googleId: profile.googleId },
+    });
+    if (!user) {
+      user = this.userRepo.create({
+        googleId: profile.googleId,
+        email: profile.email,
+        displayName: profile.displayName,
+        profileImageUrl: profile.profileImageUrl,
+      });
+      user = await this.userRepo.save(user);
+    }
+    return user;
   }
-  async login(dto: SignInDto): Promise<AuthResponseDto> {
-    const user = await this.usersService.findByEmail(dto.email);
-    const ok = !!user && (await bcrypt.compare(dto.password, user.passwordHash));
-    if (!user || !ok) throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message: 'Invalid email or password' });
-    return this.buildAuthResponse(user);
-  }
-  private buildAuthResponse(user: AuthenticatedUser): AuthResponseDto {
+
+  issueAccessToken(user: User): string {
     const payload: JwtPayload = { sub: user.id, email: user.email, roles: [] };
-    const accessToken = this.jwtService.sign(payload);
-    return {
-      accessToken,
-      user: { id: user.id, email: user.email, name: user.name,
-        createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : user.createdAt },
-    };
+    return this.jwtService.sign(payload);
+  }
+
+  async loginWithGoogle(profile: GoogleProfile): Promise<AuthResult> {
+    const user = await this.validateOrCreateUser(profile);
+    const accessToken = this.issueAccessToken(user);
+    return { accessToken, user };
+  }
+
+  async getById(id: string): Promise<User> {
+    const user = await this.userRepo.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException({
+        code: 'USER_NOT_FOUND',
+        message: '사용자를 찾을 수 없습니다',
+      });
+    }
+    return user;
   }
 }
