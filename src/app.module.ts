@@ -9,6 +9,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { HealthModule } from './modules/health/health.module';
 import { FollowModule } from './modules/follow/follow.module';
+import { ProductModule } from './modules/product/product.module';
+// === FEATURE MODULE IMPORTS ===
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { FollowModule } from './modules/follow/follow.module';
     AuthModule,
     HealthModule,
     FollowModule,
+    ProductModule,
+    // === FEATURE MODULES ===
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
