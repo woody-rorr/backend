@@ -5,25 +5,19 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
 import configuration from './config/configuration';
 import { AppDataSource } from './database/data-source';
-import { AuthModule } from './modules/auth/auth.module';
-import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
-import { HealthModule } from './modules/health/health.module';
-import { CalendarModule } from './modules/calendar/calendar.module';
-import { EventModule } from './modules/event/event.module';
+// === FEATURE MODULE IMPORTS ===
+import { BlogModule } from './modules/blog/blog.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
     TypeOrmModule.forRoot(AppDataSource.options),
-    AuthModule,
-    HealthModule,
-    CalendarModule,
-    EventModule,
+    // === FEATURE MODULES ===
+    BlogModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
-    { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })
 export class AppModule {}

@@ -1,8 +1,11 @@
-import 'reflect-metadata';
+import 'dotenv/config';
 import { DataSource } from 'typeorm';
 
-const sslEnabled = process.env.DB_SSL === 'true';
-
+/**
+ * TypeORM data source (04-data-layer.md, 07-env-and-secrets.md).
+ * Single DataSource export only — TypeORM CLI rejects dual named+default export.
+ * entities / migrations use globs so new files are picked up automatically.
+ */
 export const AppDataSource = new DataSource({
   type: 'postgres',
   host: process.env.DB_HOST,
@@ -10,9 +13,9 @@ export const AppDataSource = new DataSource({
   username: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  ssl: sslEnabled ? { rejectUnauthorized: false } : false,
+  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
   entities: [__dirname + '/../**/*.entity.{ts,js}'],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,
-  logging: ['error', 'warn'],
+  logging: false,
 });
