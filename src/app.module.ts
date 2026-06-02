@@ -9,7 +9,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { HealthModule } from './modules/health/health.module';
 // === FEATURE MODULE IMPORTS ===
-import { OrderModule } from './modules/order/order.module';
+import { PaymentModule } from './modules/payment/payment.module';
 
 @Module({
   imports: [
@@ -19,7 +19,7 @@ import { OrderModule } from './modules/order/order.module';
     AuthModule,
     HealthModule,
     // === FEATURE MODULES ===
-    OrderModule,
+    PaymentModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
