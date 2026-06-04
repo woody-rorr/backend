@@ -1,0 +1,37 @@
+name: Auto rebase open PRs
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  rebase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync all open PRs with latest main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          PRS=$(gh pr list --repo ${{ github.repository }} --state open --json number --jq '.[].number')
+          if [ -z "$PRS" ]; then
+            echo "No open PRs to rebase"
+            exit 0
+          fi
+          for pr in $PRS; do
+            echo "--- PR #$pr ---"
+            output=$(gh pr update-branch $pr --repo ${{ github.repository }} 2>&1)
+            code=$?
+            if [ $code -eq 0 ]; then
+              echo "PR #$pr: 자동 sync 완료"
+            else
+              echo "PR #$pr: 자동 sync 실패 — 수동 해결 필요"
+              echo "$output"
+              gh pr comment $pr --repo ${{ github.repository }} --body "⚠️ main 최신 상태와 자동 sync 실패 — 수동 rebase 필요. \`git fetch origin main && git rebase origin/main\` 후 conflict 해결하고 force push." 2>/dev/null || true
+            fi
+          done
+          exit 0
