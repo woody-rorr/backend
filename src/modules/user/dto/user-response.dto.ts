@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export class AuthUserDto {
+export class UserResponseDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
 
@@ -12,12 +12,7 @@ export class AuthUserDto {
 
   @ApiProperty({ format: 'date-time' })
   createdAt: string;
-}
 
-export class AuthResponseDto {
-  @ApiProperty({ description: 'JWT access token (HS256)' })
-  access_token: string;
-
-  @ApiProperty({ type: AuthUserDto })
-  user: AuthUserDto;
+  @ApiProperty({ format: 'date-time' })
+  updatedAt: string;
 }

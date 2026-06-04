@@ -7,9 +7,19 @@ import { Public } from '../../common/decorators/public.decorator';
 export class HealthController {
   @Public()
   @Get()
-  @ApiOperation({ summary: 'Liveness probe' })
-  @ApiResponse({ status: 200, description: 'Service is healthy' })
-  check(): { status: string; uptime: number; version: string } {
-    return { status: 'ok', uptime: process.uptime(), version: process.env.npm_package_version ?? '1.0.0' };
+  @ApiOperation({ summary: 'Liveness health check' })
+  @ApiResponse({
+    status: 200,
+    description: 'Service is up',
+    schema: {
+      example: { status: 'ok', uptime: 123.45, version: '1.0.0' },
+    },
+  })
+  check() {
+    return {
+      status: 'ok',
+      uptime: process.uptime(),
+      version: process.env.npm_package_version ?? '1.0.0',
+    };
   }
 }
