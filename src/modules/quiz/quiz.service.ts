@@ -1,77 +1,97 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
 import { QuizRepository } from './quiz.repository';
-import { QuizEntry, QuizPrediction, QuizResult } from './entities/quiz-entry.entity';
-import { UserStreak } from './entities/user-streak.entity';
-import { SparkService } from '../spark/spark.service';
-import { SubmitQuizDto } from './dto/quiz.dto';
-
-const SPARK_REWARD = 5;
+import { ParticipateDto } from './dto/quiz.dto';
 
 @Injectable()
 export class QuizService {
-  constructor(
-    private readonly quizRepository: QuizRepository,
-    private readonly dataSource: DataSource,
-    private readonly sparkService: SparkService,
-  ) {}
+  constructor(private readonly repo: QuizRepository) {}
 
-  async submit(userId: string, dto: SubmitQuizDto) {
-    const existing = await this.quizRepository.findByUserAndMatch(userId, dto.matchId);
+  private currentPeriod(): string {
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  }
+
+  async participate(userId: string, dto: ParticipateDto) {
+    const quiz = await this.repo.findQuizById(dto.quiz_id);
+    if (!quiz) {
+      throw new NotFoundException({ code: 'QUIZ_NOT_FOUND', message: '퀴즈를 찾을 수 없습니다' });
+    }
+    if (quiz.closedAt && quiz.closedAt.getTime() <= Date.now()) {
+      throw new UnprocessableEntityException({ code: 'QUIZ_CLOSED', message: '마감된 퀴즈입니다' });
+    }
+    const existing = await this.repo.findParticipation(dto.quiz_id, userId);
     if (existing) {
-      throw new ConflictException({ code: 'QUIZ_ALREADY_SUBMITTED', message: '이미 예측을 제출한 경기입니다' });
+      throw new ConflictException({
+        code: 'ALREADY_PARTICIPATED',
+        message: '이미 참여한 퀴즈입니다',
+      });
     }
-    const entry = this.quizRepository.createEntry({ userId, matchId: dto.matchId, prediction: dto.prediction });
-    const saved = await this.quizRepository.saveEntry(entry);
-    return this.toResponse(saved);
-  }
-
-  async settle(matchId: string, winner: QuizPrediction) {
-    const pending = await this.quizRepository.findPendingByMatch(matchId);
-    if (pending.length === 0) {
-      throw new NotFoundException({ code: 'QUIZ_MATCH_NOT_FOUND', message: '정산할 예측이 없습니다' });
-    }
-    const settledAt = new Date();
-    const settledEntries: QuizEntry[] = [];
-    await this.dataSource.transaction(async (manager) => {
-      const entryRepo = manager.getRepository(QuizEntry);
-      const streakRepo = manager.getRepository(UserStreak);
-      for (const entry of pending) {
-        let streak = await streakRepo.findOne({ where: { userId: entry.userId } });
-        if (!streak) { streak = streakRepo.create({ userId: entry.userId }); }
-        const correct = entry.prediction === winner;
-        if (correct) { streak.recordWin(settledAt); } else { streak.recordLoss(); }
-        entry.settle(correct, streak.currentStreak);
-        await streakRepo.save(streak);
-        await entryRepo.save(entry);
-        settledEntries.push(entry);
-      }
+    const saved = await this.repo.createParticipation({
+      quizId: dto.quiz_id,
+      userId,
+      prediction: dto.prediction,
     });
-    for (const entry of settledEntries) {
-      await this.sparkService.grant(entry.userId, SPARK_REWARD, 'QUIZ_SETTLE');
-      entry.sparkGranted = true;
-      await this.quizRepository.saveEntry(entry);
-    }
-    return { matchId, winner, settled: settledEntries.length, sparkGranted: settledEntries.length * SPARK_REWARD };
+    return {
+      participation_id: saved.id,
+      quiz_id: saved.quizId,
+      prediction: saved.prediction,
+      participated_at: saved.participatedAt,
+    };
   }
 
-  async getHistory(userId: string, page: number, limit: number) {
-    const [items, total] = await this.quizRepository.findHistoryByUser(userId, page, limit);
-    return { data: items.map((e) => this.toResponse(e)), meta: { page, limit, total, totalPages: Math.ceil(total / limit) } };
+  async getAvailableQuizzes() {
+    const quizzes = await this.repo.findAvailableQuizzes();
+    return {
+      quizzes: quizzes.map((q) => ({
+        id: q.id,
+        match_id: q.matchId,
+        created_at: q.createdAt,
+        closed_at: q.closedAt,
+      })),
+    };
   }
 
-  async getStreak(userId: string) {
-    const streak = await this.quizRepository.findStreak(userId);
-    return { currentStreak: streak?.currentStreak ?? 0, longestStreak: streak?.longestStreak ?? 0, longestStreakStartAt: streak?.longestStreakStartAt ?? null };
+  async getMyParticipations(userId: string, page: number, limit: number) {
+    const [items, total] = await this.repo.findMyParticipations(userId, page, limit);
+    return {
+      participations: items.map((p) => ({
+        id: p.id,
+        quiz_id: p.quizId,
+        prediction: p.prediction,
+        is_correct: p.isCorrect,
+        participated_at: p.participatedAt,
+      })),
+      total,
+    };
   }
 
-  async getAvailable(_userId: string) {
-    return { data: [] as string[] };
+  async getRanking(period?: string) {
+    const target = period ?? this.currentPeriod();
+    const streaks = await this.repo.findRankingsByPeriod(target);
+    return {
+      rankings: streaks.map((s, index) => ({
+        user_id: s.userId,
+        max_streak: s.maxStreakMonthly,
+        rank: index + 1,
+      })),
+      period: target,
+    };
   }
 
-  private toResponse(entry: QuizEntry) {
-    return { id: entry.id, matchId: entry.matchId, prediction: entry.prediction, result: entry.result, streak: entry.streak, sparkGranted: entry.sparkGranted, createdAt: entry.createdAt };
+  async getMyStreak(userId: string) {
+    const period = this.currentPeriod();
+    const streak = await this.repo.findStreak(userId, period);
+    return {
+      current_streak: streak?.currentStreak ?? 0,
+      max_streak_monthly: streak?.maxStreakMonthly ?? 0,
+      last_updated: streak?.lastUpdated ?? null,
+    };
   }
 }
-
-export { QuizResult };

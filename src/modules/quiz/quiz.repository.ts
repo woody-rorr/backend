@@ -1,49 +1,60 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { QuizEntry, QuizResult } from './entities/quiz-entry.entity';
-import { UserStreak } from './entities/user-streak.entity';
+import { Quiz, QuizParticipation, QuizStreak } from './entities/quiz.entity';
 
 @Injectable()
 export class QuizRepository {
   constructor(
-    @InjectRepository(QuizEntry)
-    private readonly entries: Repository<QuizEntry>,
-    @InjectRepository(UserStreak)
-    private readonly streaks: Repository<UserStreak>,
+    @InjectRepository(Quiz) private readonly quizzes: Repository<Quiz>,
+    @InjectRepository(QuizParticipation)
+    private readonly participations: Repository<QuizParticipation>,
+    @InjectRepository(QuizStreak) private readonly streaks: Repository<QuizStreak>,
   ) {}
 
-  findByUserAndMatch(userId: string, matchId: string): Promise<QuizEntry | null> {
-    return this.entries.findOne({ where: { userId, matchId } });
+  findQuizById(id: string) {
+    return this.quizzes.findOne({ where: { id } });
   }
 
-  createEntry(data: Partial<QuizEntry>): QuizEntry {
-    return this.entries.create(data);
+  findAvailableQuizzes() {
+    return this.quizzes
+      .createQueryBuilder('q')
+      .where('q.closedAt IS NULL')
+      .orWhere('q.closedAt > :now', { now: new Date() })
+      .orderBy('q.createdAt', 'DESC')
+      .getMany();
   }
 
-  saveEntry(entry: QuizEntry): Promise<QuizEntry> {
-    return this.entries.save(entry);
+  findParticipation(quizId: string, userId: string) {
+    return this.participations.findOne({ where: { quizId, userId } });
   }
 
-  findPendingByMatch(matchId: string): Promise<QuizEntry[]> {
-    return this.entries.find({ where: { matchId, result: QuizResult.PENDING } });
+  createParticipation(data: { quizId: string; userId: string; prediction: string }) {
+    const entity = this.participations.create({
+      quizId: data.quizId,
+      userId: data.userId,
+      prediction: data.prediction,
+    });
+    return this.participations.save(entity);
   }
 
-  findHistoryByUser(userId: string, page: number, limit: number): Promise<[QuizEntry[], number]> {
-    return this.entries.findAndCount({
+  findMyParticipations(userId: string, page: number, limit: number) {
+    return this.participations.findAndCount({
       where: { userId },
-      order: { createdAt: 'DESC' },
+      order: { participatedAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,
     });
   }
 
-  findStreak(userId: string): Promise<UserStreak | null> {
-    return this.streaks.findOne({ where: { userId } });
+  findRankingsByPeriod(period: string) {
+    return this.streaks.find({
+      where: { period },
+      order: { maxStreakMonthly: 'DESC' },
+    });
   }
 
-  async findSubmittedMatchIds(userId: string): Promise<string[]> {
-    const rows = await this.entries.find({ where: { userId }, select: { matchId: true } });
-    return rows.map((r) => r.matchId);
+  findStreak(userId: string, period: string) {
+    return this.streaks.findOne({ where: { userId, period } });
   }
 }

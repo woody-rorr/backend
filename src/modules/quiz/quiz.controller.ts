@@ -1,54 +1,58 @@
-import { Body, Controller, Get, HttpCode, Param, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Query, Req } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Request } from 'express';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { RolesGuard } from '../auth/guards/roles.guard';
+import { Public } from '../../common/decorators/public.decorator';
 import { QuizService } from './quiz.service';
-import { QuizHistoryQueryDto, SettleQuizDto, SubmitQuizDto } from './dto/quiz.dto';
+import { ParticipateDto, PaginationQueryDto, RankingQueryDto } from './dto/quiz.dto';
 
 interface AuthenticatedRequest extends Request {
   user: { sub: string; email?: string; roles: string[] };
 }
 
 @ApiTags('quiz')
-@ApiBearerAuth()
 @Controller('quiz')
 export class QuizController {
   constructor(private readonly quizService: QuizService) {}
 
-  @Post('submit')
+  @Post('participate')
+  @HttpCode(201)
+  @ApiBearerAuth()
   @ApiOperation({ summary: '승패 예측 제출' })
-  @ApiResponse({ status: 201 })
-  @ApiResponse({ status: 409, description: '이미 제출한 경기' })
-  submit(@Req() req: AuthenticatedRequest, @Body() dto: SubmitQuizDto) {
-    return this.quizService.submit(req.user.sub, dto);
+  @ApiResponse({ status: 201, description: '참여 성공' })
+  @ApiResponse({ status: 409, description: '이미 참여한 퀴즈' })
+  participate(@Req() req: AuthenticatedRequest, @Body() dto: ParticipateDto) {
+    return this.quizService.participate(req.user.sub, dto);
   }
 
-  @Post('settle/:matchId')
-  @HttpCode(200)
-  @UseGuards(RolesGuard)
-  @Roles('admin')
-  @ApiOperation({ summary: '경기 정산 (admin)' })
-  @ApiResponse({ status: 200 })
-  settle(@Param('matchId') matchId: string, @Body() dto: SettleQuizDto) {
-    return this.quizService.settle(matchId, dto.winner);
-  }
-
-  @Get('history')
-  @ApiOperation({ summary: '내 퀴즈 참여 이력' })
-  getHistory(@Req() req: AuthenticatedRequest, @Query() query: QuizHistoryQueryDto) {
-    return this.quizService.getHistory(req.user.sub, query.page, query.limit);
-  }
-
-  @Get('streak')
-  @ApiOperation({ summary: '내 현재/최장 streak 조회' })
-  getStreak(@Req() req: AuthenticatedRequest) {
-    return this.quizService.getStreak(req.user.sub);
-  }
-
+  @Public()
   @Get('available')
-  @ApiOperation({ summary: '오늘 참여 가능한 경기 목록' })
-  getAvailable(@Req() req: AuthenticatedRequest) {
-    return this.quizService.getAvailable(req.user.sub);
+  @ApiOperation({ summary: '참여 가능한 경기 목록' })
+  @ApiResponse({ status: 200, description: '목록 조회 성공' })
+  available() {
+    return this.quizService.getAvailableQuizzes();
+  }
+
+  @Get('my-participations')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '내 참여 내역' })
+  @ApiResponse({ status: 200, description: '조회 성공' })
+  myParticipations(@Req() req: AuthenticatedRequest, @Query() query: PaginationQueryDto) {
+    return this.quizService.getMyParticipations(req.user.sub, query.page, query.limit);
+  }
+
+  @Public()
+  @Get('ranking')
+  @ApiOperation({ summary: 'Ranking 조회' })
+  @ApiResponse({ status: 200, description: '조회 성공' })
+  ranking(@Query() query: RankingQueryDto) {
+    return this.quizService.getRanking(query.period);
+  }
+
+  @Get('my-streak')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: '내 Streak 조회' })
+  @ApiResponse({ status: 200, description: '조회 성공' })
+  myStreak(@Req() req: AuthenticatedRequest) {
+    return this.quizService.getMyStreak(req.user.sub);
   }
 }

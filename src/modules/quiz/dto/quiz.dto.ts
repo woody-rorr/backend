@@ -1,48 +1,39 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import {
-  IsEnum,
-  IsInt,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  Max,
-  MaxLength,
-  Min,
-} from 'class-validator';
-import { QuizPrediction } from '../entities/quiz-entry.entity';
+import { IsIn, IsInt, IsOptional, IsUUID, Matches, Min } from 'class-validator';
 
-export class SubmitQuizDto {
-  @ApiProperty({ example: 'match_2026_06_02_T1_GEN', maxLength: 255 })
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(255)
-  matchId: string;
+export const PREDICTIONS = ['WIN', 'LOSE', 'DRAW'] as const;
+export type Prediction = (typeof PREDICTIONS)[number];
 
-  @ApiProperty({ enum: QuizPrediction })
-  @IsEnum(QuizPrediction)
-  prediction: QuizPrediction;
+export class ParticipateDto {
+  @ApiProperty({ format: 'uuid', description: '참여할 퀴즈 ID' })
+  @IsUUID()
+  quiz_id: string;
+
+  @ApiProperty({ enum: PREDICTIONS, description: '승패 예측' })
+  @IsIn(PREDICTIONS)
+  prediction: Prediction;
 }
 
-export class SettleQuizDto {
-  @ApiProperty({ enum: QuizPrediction })
-  @IsEnum(QuizPrediction)
-  winner: QuizPrediction;
-}
-
-export class QuizHistoryQueryDto {
+export class PaginationQueryDto {
   @ApiPropertyOptional({ default: 1, minimum: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page: number = 1;
+  page = 1;
 
-  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
+  @ApiPropertyOptional({ default: 10, minimum: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
-  limit: number = 20;
+  limit = 10;
+}
+
+export class RankingQueryDto {
+  @ApiPropertyOptional({ example: '2026-06', description: 'YYYY-MM 형식, 미지정 시 현재 월' })
+  @IsOptional()
+  @Matches(/^\d{4}-\d{2}$/, { message: 'period must be in YYYY-MM format' })
+  period?: string;
 }
