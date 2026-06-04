@@ -1,10 +1,12 @@
-import 'dotenv/config';
+import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 
 /**
- * TypeORM data source (04-data-layer.md, 07-env-and-secrets.md).
- * Single DataSource export only — TypeORM CLI rejects dual named+default export.
- * entities / migrations use globs so new files are picked up automatically.
+ * TypeORM DataSource — used by both the Nest runtime (via
+ * TypeOrmModule.forRoot(AppDataSource.options)) and the TypeORM CLI for
+ * migrations. Only ONE export of a DataSource instance is allowed (db_migration.md §6).
+ *
+ * Env vars: 07-env-and-secrets.md §1.
  */
 export const AppDataSource = new DataSource({
   type: 'postgres',
@@ -17,5 +19,6 @@ export const AppDataSource = new DataSource({
   entities: [__dirname + '/../**/*.entity.{ts,js}'],
   migrations: [__dirname + '/migrations/*.{ts,js}'],
   synchronize: false,
-  logging: false,
+  logging: ['error', 'warn'],
+  poolSize: 10,
 });
