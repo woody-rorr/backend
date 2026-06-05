@@ -11,6 +11,7 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { HealthModule } from './modules/health/health.module';
 // === FEATURE MODULE IMPORTS ===
 import { RankingModule } from './modules/ranking/ranking.module';
+import { SparkModule } from './modules/spark/spark.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { RankingModule } from './modules/ranking/ranking.module';
     HealthModule,
     // === FEATURE MODULES ===
     RankingModule,
+    SparkModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
