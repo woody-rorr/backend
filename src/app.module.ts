@@ -5,14 +5,16 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
 import configuration from './config/configuration';
 import { AppDataSource } from './database/data-source';
-import { RankingModule } from './modules/ranking/ranking.module';
+import { BoardModule } from './modules/board/board.module';
+// === FEATURE MODULE IMPORTS ===
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
     TypeOrmModule.forRoot(AppDataSource.options),
-    RankingModule,
+    BoardModule,
+    // === FEATURE MODULES ===
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
