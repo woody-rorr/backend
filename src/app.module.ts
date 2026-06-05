@@ -7,6 +7,7 @@ import configuration from './config/configuration';
 import { AppDataSource } from './database/data-source';
 import { MemberModule } from './modules/member/member.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { RankingModule } from './modules/ranking/ranking.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { AuthModule } from './modules/auth/auth.module';
     TypeOrmModule.forRoot(AppDataSource.options),
     MemberModule,
     AuthModule,
+    RankingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
