@@ -8,7 +8,9 @@ import { AppDataSource } from './database/data-source';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { HealthModule } from './modules/health/health.module';
-import { FollowModule } from './modules/follow/follow.module';
+// === FEATURE MODULE IMPORTS ===
+import { QuizModule } from './modules/quiz/quiz.module';
+import { RankingModule } from './modules/ranking/ranking.module';
 import { SparkModule } from './modules/spark/spark.module';
 
 @Module({
@@ -18,7 +20,9 @@ import { SparkModule } from './modules/spark/spark.module';
     TypeOrmModule.forRoot(AppDataSource.options),
     AuthModule,
     HealthModule,
-    FollowModule,
+    // === FEATURE MODULES ===
+    QuizModule,
+    RankingModule,
     SparkModule,
   ],
   providers: [

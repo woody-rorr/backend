@@ -1,30 +1,36 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThanOrEqual, Repository } from 'typeorm';
-import { SparkEntity, SparkReason } from './entities/spark.entity';
-import { SparkLevelEntity } from './entities/spark-level.entity';
+import { DataSource, EntityManager, Repository } from 'typeorm';
+import { SparkTransaction } from './entities/spark-transaction.entity';
 
 @Injectable()
-export class SparkRepository {
-  constructor(
-    @InjectRepository(SparkEntity) private readonly sparkRepo: Repository<SparkEntity>,
-    @InjectRepository(SparkLevelEntity) private readonly levelRepo: Repository<SparkLevelEntity>,
-  ) {}
+export class SparkRepository extends Repository<SparkTransaction> {
+  constructor(private readonly dataSource: DataSource) {
+    super(SparkTransaction, dataSource.createEntityManager());
+  }
 
-  findHistory(userId: string, page: number, limit: number): Promise<[SparkEntity[], number]> {
-    return this.sparkRepo.findAndCount({
+  // 사용자의 가장 최근 거래 (= 현재 잔액 출처).
+  async findLatestByUserId(
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<SparkTransaction | null> {
+    const repo = manager ? manager.getRepository(SparkTransaction) : this;
+    return repo.findOne({
       where: { userId },
       order: { createdAt: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
     });
   }
 
-  findLevel(userId: string): Promise<SparkLevelEntity | null> {
-    return this.levelRepo.findOne({ where: { userId } });
-  }
-
-  countByReasonSince(userId: string, reason: SparkReason, since: Date): Promise<number> {
-    return this.sparkRepo.count({ where: { userId, reason, createdAt: MoreThanOrEqual(since) } });
+  async findHistory(
+    userId: string,
+    page: number,
+    limit: number,
+    order: 'ASC' | 'DESC',
+  ): Promise<[SparkTransaction[], number]> {
+    return this.findAndCount({
+      where: { userId },
+      order: { createdAt: order },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
   }
 }
