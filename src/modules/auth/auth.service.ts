@@ -1,7 +1,6 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { Profile } from 'passport-google-oauth20';
 import { MemberService } from '../member/member.service';
 import { Member } from '../member/entities/member.entity';
 import { JwtPayload } from './strategies/jwt.strategy';
@@ -13,24 +12,6 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly config: ConfigService,
   ) {}
-
-  async validateGoogleProfile(profile: Profile): Promise<Member> {
-    const googleId = profile.id;
-    const email = profile.emails?.[0]?.value;
-    const name = profile.displayName;
-    if (!email) {
-      throw new UnauthorizedException({
-        code: 'OAUTH_FAILED',
-        message: 'Google 프로필에서 이메일을 확인할 수 없습니다',
-      });
-    }
-    const existing = await this.memberService.findByGoogleId(googleId);
-    if (existing) {
-      await this.memberService.updateLastLoginAt(existing.id);
-      return existing;
-    }
-    return this.memberService.createFromGoogleProfile({ google_id: googleId, email, name });
-  }
 
   async issueTokens(member: Member): Promise<{ access_token: string; refresh_token: string }> {
     const payload: JwtPayload = { sub: member.id, email: member.email, roles: ['user'] };
