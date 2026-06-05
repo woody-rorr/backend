@@ -8,9 +8,7 @@ import { AppDataSource } from './database/data-source';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { HealthModule } from './modules/health/health.module';
-// === FEATURE MODULE IMPORTS ===
-import { RankingsModule } from './modules/rankings/rankings.module';
-import { RankingSnapshotModule } from './modules/ranking-snapshot/ranking-snapshot.module';
+import { FollowModule } from './modules/follow/follow.module';
 
 @Module({
   imports: [
@@ -19,9 +17,7 @@ import { RankingSnapshotModule } from './modules/ranking-snapshot/ranking-snapsh
     TypeOrmModule.forRoot(AppDataSource.options),
     AuthModule,
     HealthModule,
-    // === FEATURE MODULES ===
-    RankingsModule,
-    RankingSnapshotModule,
+    FollowModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
