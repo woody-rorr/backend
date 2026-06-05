@@ -5,17 +5,27 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { APP_GUARD } from '@nestjs/core';
 import configuration from './config/configuration';
 import { AppDataSource } from './database/data-source';
-import { RankingModule } from './modules/ranking/ranking.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
+import { HealthModule } from './modules/health/health.module';
+// === FEATURE MODULE IMPORTS ===
+import { SparkModule } from './modules/spark/spark.module';
+import { EnergyModule } from './modules/energy/energy.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
     TypeOrmModule.forRoot(AppDataSource.options),
-    RankingModule,
+    AuthModule,
+    HealthModule,
+    // === FEATURE MODULES ===
+    SparkModule,
+    EnergyModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })
 export class AppModule {}
