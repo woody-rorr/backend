@@ -1,69 +1,54 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { MyRankingQueryDto, RankingQueryDto, RankingResponseDto } from './dto/ranking.dto';
-import { RankingEntity } from './entities/ranking.entity';
+import { Injectable } from '@nestjs/common';
 import { RankingRepository } from './ranking.repository';
+import { MyRankingResponseDto, RankingListResponseDto } from './dto/ranking-response.dto';
 
 @Injectable()
 export class RankingService {
   constructor(private readonly rankingRepository: RankingRepository) {}
 
-  /** UTC 기준 현재 월(YYYY-MM). DB는 UTC 저장(06-runtime-rules.md §10). */
-  private currentMonth(): string {
+  private currentPeriod(): string {
     const now = new Date();
-    return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
+    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+    return `${now.getUTCFullYear()}-${month}`;
   }
 
-  private toResponse(entity: RankingEntity): RankingResponseDto {
+  async listRankings(periodInput?: string): Promise<RankingListResponseDto> {
+    const period = periodInput ?? this.currentPeriod();
+    const rows = await this.rankingRepository.findRankedByPeriod(period);
     return {
-      id: entity.id,
-      userId: entity.userId,
-      rank: entity.rank,
-      longestStreak: entity.longestStreak,
-      streakAchievedAt: entity.streakAchievedAt?.toISOString() ?? null,
-      streakStartedAt: entity.streakStartedAt?.toISOString() ?? null,
-      month: entity.month,
-      lastUpdatedAt: entity.lastUpdatedAt?.toISOString() ?? null,
+      rankings: rows.map((row, idx) => ({
+        rank: idx + 1,
+        user: { id: row.userId, nickname: row.nickname },
+        longestStreak: row.longestStreak,
+        streakAchievedAt: row.streakAchievedAt,
+      })),
     };
   }
 
-  /** GET /rankings — 상위 랭킹 목록 (페이지네이션). */
-  async getRankings(query: RankingQueryDto): Promise<{
-    data: RankingResponseDto[];
-    meta: { page: number; limit: number; total: number; totalPages: number };
-  }> {
-    const month = query.month ?? this.currentMonth();
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
-
-    const [rows, total] = await this.rankingRepository.findTopRankings(month, page, limit);
-
-    return {
-      data: rows.map((row) => this.toResponse(row)),
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
-  }
-
-  /** GET /rankings/me — 내 랭킹 및 Streak 정보. */
-  async getMyRanking(userId: string, query: MyRankingQueryDto): Promise<RankingResponseDto> {
-    const month = query.month ?? this.currentMonth();
-    const ranking = await this.rankingRepository.findByUserAndMonth(userId, month);
-
-    if (!ranking) {
-      throw new HttpException(
-        {
-          code: 'RANKING_NOT_FOUND',
-          message: '해당 월의 랭킹 기록을 찾을 수 없습니다',
-          details: { month },
-        },
-        HttpStatus.NOT_FOUND,
-      );
+  async getMyRanking(
+    userId: string,
+    periodInput?: string,
+  ): Promise<MyRankingResponseDto | null> {
+    const period = periodInput ?? this.currentPeriod();
+    const record = await this.rankingRepository.findByUserAndPeriod(userId, period);
+    if (!record || record.longestStreak < 1) {
+      return null;
     }
+    const rows = await this.rankingRepository.findRankedByPeriod(period);
+    const idx = rows.findIndex((r) => r.userId === userId);
+    return {
+      rank: idx >= 0 ? idx + 1 : null,
+      period,
+      longestStreak: record.longestStreak,
+      streakAchievedAt: record.streakAchievedAt,
+      streakStartedAt: record.streakStartedAt,
+    };
+  }
 
-    return this.toResponse(ranking);
+  // 매일 cron에서 호출. 각 유저의 현재 월 longestStreak 재계산 후 upsert.
+  // TODO(spec required): streak 원천 데이터(streak 엔티티/소스)가 명세되지 않아 본문 미구현.
+  // TODO(spec required): 월말 보상 — 랭킹 상위자에게 Spark 지급 로직.
+  async recomputeCurrentPeriod(): Promise<void> {
+    return;
   }
 }
