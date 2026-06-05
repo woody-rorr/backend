@@ -12,6 +12,7 @@ import { HealthModule } from './modules/health/health.module';
 import { RankingsModule } from './modules/rankings/rankings.module';
 import { RankingSnapshotModule } from './modules/ranking-snapshot/ranking-snapshot.module';
 import { FollowsModule } from './modules/follows/follows.module';
+import { CommentsModule } from './modules/comments/comments.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { FollowsModule } from './modules/follows/follows.module';
     RankingsModule,
     RankingSnapshotModule,
     FollowsModule,
+    CommentsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
