@@ -8,9 +8,8 @@ import { AppDataSource } from './database/data-source';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { HealthModule } from './modules/health/health.module';
-import { FollowModule } from './modules/follow/follow.module';
-import { SparkModule } from './modules/spark/spark.module';
-import { QuizModule } from './modules/quiz/quiz.module';
+// === FEATURE MODULE IMPORTS ===
+import { RankingModule } from './modules/ranking/ranking.module';
 
 @Module({
   imports: [
@@ -19,9 +18,8 @@ import { QuizModule } from './modules/quiz/quiz.module';
     TypeOrmModule.forRoot(AppDataSource.options),
     AuthModule,
     HealthModule,
-    FollowModule,
-    SparkModule,
-    QuizModule,
+    // === FEATURE MODULES ===
+    RankingModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: ThrottlerGuard },
