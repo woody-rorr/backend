@@ -1,15 +1,15 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { RankingEntity } from './entities/ranking.entity';
-import { RankingRewardEntity } from './entities/ranking-reward.entity';
 import { RankingController } from './ranking.controller';
-import { RankingRepository } from './ranking.repository';
 import { RankingService } from './ranking.service';
+import { RankingRepository } from './ranking.repository';
+import { RankingCronService } from './ranking.cron';
+import { RankingRecord } from './entities/ranking-record.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([RankingEntity, RankingRewardEntity])],
+  imports: [TypeOrmModule.forFeature([RankingRecord])],
   controllers: [RankingController],
-  providers: [RankingService, RankingRepository],
+  providers: [RankingService, RankingRepository, RankingCronService],
   exports: [RankingService],
 })
 export class RankingModule {}
