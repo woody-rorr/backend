@@ -45,7 +45,7 @@ export class CommentsController {
 
   @Get()
   @ApiOperation({ summary: '특정 게시물의 댓글 목록' })
-  @ApiQuery({ name: 'postId', required: true, type: String, format: 'uuid' })
+  @ApiQuery({ name: 'postId', required: true, type: String, description: 'UUID of the post' })
   @ApiResponse({ status: 200, type: [CommentResponseDto] })
   @ApiResponse({ status: 401, description: 'UNAUTHORIZED' })
   async findByPost(
