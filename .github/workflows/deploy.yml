@@ -7,6 +7,7 @@ on:
       - 'src/**'
       - 'deploy/Dockerfile'
       - 'deploy/entrypoint.sh'
+      - 'deploy/migrate-task-def.json'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/deploy.yml'
@@ -36,7 +37,7 @@ jobs:
         id: check
         run: |
           missing=""
-          for f in deploy/Dockerfile deploy/entrypoint.sh package.json; do
+          for f in deploy/Dockerfile deploy/entrypoint.sh deploy/migrate-task-def.json package.json; do
             if [ ! -f "$f" ]; then missing="$missing $f"; fi
           done
           if [ -n "$missing" ]; then
@@ -46,8 +47,6 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # MCP scaffold 산출물에는 lock 파일이 없으므로, 빌드 직전 자동 생성.
-      # 운영자가 로컬 npm install 후 lock 을 커밋하면 이 단계는 no-op.
       - name: Setup Node
         if: steps.check.outputs.ready == 'true'
         uses: actions/setup-node@v4
@@ -90,6 +89,55 @@ jobs:
           tags: |
             ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO }}:latest
             ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPO }}:${{ github.sha }}
+
+      # === migrate-runner: build/push 후, update-service 전에 마이그레이션 선행 실행 ===
+      - name: Register migrate task definition
+        if: steps.check.outputs.ready == 'true'
+        id: register-migrate
+        run: |
+          TASK_DEF_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://deploy/migrate-task-def.json \
+            --region $AWS_REGION \
+            --query 'taskDefinition.taskDefinitionArn' --output text)
+          echo "task_def_arn=$TASK_DEF_ARN" >> $GITHUB_OUTPUT
+          echo "Registered: $TASK_DEF_ARN"
+
+      - name: Run database migration
+        if: steps.check.outputs.ready == 'true'
+        id: run-migrate
+        run: |
+          TASK_ARN=$(aws ecs run-task \
+            --cluster $CLUSTER \
+            --task-definition ${{ steps.register-migrate.outputs.task_def_arn }} \
+            --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[${{ secrets.ECS_SUBNETS }}],securityGroups=[${{ secrets.ECS_SECURITY_GROUPS }}],assignPublicIp=ENABLED}" \
+            --region $AWS_REGION \
+            --query 'tasks[0].taskArn' --output text)
+          echo "task_arn=$TASK_ARN" >> $GITHUB_OUTPUT
+          echo "Started migration task: $TASK_ARN"
+
+      - name: Wait for migration to complete
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          aws ecs wait tasks-stopped \
+            --cluster $CLUSTER \
+            --tasks ${{ steps.run-migrate.outputs.task_arn }} \
+            --region $AWS_REGION
+
+          EXIT_CODE=$(aws ecs describe-tasks \
+            --cluster $CLUSTER \
+            --tasks ${{ steps.run-migrate.outputs.task_arn }} \
+            --region $AWS_REGION \
+            --query 'tasks[0].containers[0].exitCode' --output text)
+
+          if [ "$EXIT_CODE" != "0" ]; then
+            echo "::error::Migration failed with exit code $EXIT_CODE"
+            echo "⚠️  앱 배포 중단 — 기존 버전은 계속 운영"
+            echo "로그: /ecs/backend-api-migrate (CloudWatch)"
+            exit 1
+          fi
+          echo "✅ Migration succeeded"
+      # === migrate-runner end ===
 
       - name: Set health check grace period
         if: steps.check.outputs.ready == 'true'

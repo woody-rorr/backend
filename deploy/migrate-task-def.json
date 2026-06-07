@@ -1,0 +1,33 @@
+{
+  "family": "backend-api-migrate-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::239460481239:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "migrate",
+      "image": "239460481239.dkr.ecr.us-east-1.amazonaws.com/backend-api:latest",
+      "essential": true,
+      "command": ["npm", "run", "migration:run:prod"],
+      "secrets": [
+        { "name": "DB_HOST", "valueFrom": "arn:aws:ssm:us-east-1:239460481239:parameter/backend-api-service/db-host" },
+        { "name": "DB_PORT", "valueFrom": "arn:aws:ssm:us-east-1:239460481239:parameter/backend-api-service/db-port" },
+        { "name": "DB_NAME", "valueFrom": "arn:aws:ssm:us-east-1:239460481239:parameter/backend-api-service/db-name" },
+        { "name": "DB_USER", "valueFrom": "arn:aws:ssm:us-east-1:239460481239:parameter/backend-api-service/db-user" },
+        { "name": "DB_PASSWORD", "valueFrom": "arn:aws:ssm:us-east-1:239460481239:parameter/backend-api-service/db-password" },
+        { "name": "DB_SSL", "valueFrom": "arn:aws:ssm:us-east-1:239460481239:parameter/backend-api-service/db-ssl" }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/backend-api-migrate",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "migrate",
+          "awslogs-create-group": "true"
+        }
+      }
+    }
+  ]
+}
